@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+
+# Data & Exports
+*.xml
+*.m3u
+output/
+staging/
+
+# macOS
+.DS_Store
+._*
+
+# IDEs
+.vscode/
+.idea/
+
+# Private
+download_missing.py
+
+# Private scripts
+download_missing.py
