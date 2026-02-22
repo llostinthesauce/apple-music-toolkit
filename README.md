@@ -37,10 +37,7 @@ Writes Artist, Album, and Title metadata tags to `.m4a` files based on their fol
   python3 tag_from_folders.py --root /path/to/music
   ```
 
-### 5. `download_missing.py`
-A utility for downloading missing tracks from a private API.
-
-### 6. `fetch_album_art.py`
+### 5. `fetch_album_art.py`
 Scans folders for missing `AlbumArt.jpg`, fetches the front cover from MusicBrainz/CoverArtArchive, and embeds it into the audio files.
 - **Usage:**
   ```bash
