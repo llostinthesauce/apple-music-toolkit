@@ -187,7 +187,7 @@ def _safe_filename(name: str) -> str:
     """Replace filesystem-unsafe characters with underscores."""
     return re.sub(r'[<>:"/\\|?*]', "_", name)
 
-def write_m3u(output_dir: Path, playlist_name: str, tracks: list) -> Path:
+def write_m3u(output_dir: Path, playlist_name: str, tracks: list, local_root: Path = None, prefix: str = None) -> Path:
     """
     Write a .m3u playlist file.
     tracks: list of {path, artist, title, duration_ms}
@@ -199,7 +199,17 @@ def write_m3u(output_dir: Path, playlist_name: str, tracks: list) -> Path:
     for t in tracks:
         duration_sec = t["duration_ms"] // 1000
         lines.append(f'#EXTINF:{duration_sec},{t["artist"]} - {t["title"]}')
-        lines.append(str(t["path"]))
+        
+        path_str = str(t["path"])
+        if local_root and prefix:
+            try:
+                rel_path = t["path"].relative_to(local_root.resolve())
+                # Convert path separators to forward slash for Linux/Unix compatibility
+                path_str = f"{prefix.rstrip('/')}/{rel_path.as_posix()}"
+            except ValueError:
+                pass # Fallback to original path if not relative
+                
+        lines.append(path_str)
     out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return out_path
 
@@ -268,6 +278,8 @@ def main():
                         help="Path to local iTunes-structured music folder")
     parser.add_argument("--output", required=True, type=Path,
                         help="Directory to write M3U files and report into")
+    parser.add_argument("--prefix", required=False, type=str,
+                        help="Remote path prefix to replace the local root (e.g., /mnt/music/foriPod)")
     args = parser.parse_args()
 
     if not args.source.exists():
@@ -310,7 +322,7 @@ def main():
                     "title": track["title"],
                 })
         if matched:
-            write_m3u(args.output, playlist["name"], matched)
+            write_m3u(args.output, playlist["name"], matched, local_root=args.local, prefix=args.prefix)
         print(f"  {playlist['name']}: {len(matched)}/{len(playlist['track_ids'])} matched")
 
     write_report(args.output, misses)

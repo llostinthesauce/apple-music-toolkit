@@ -177,12 +177,17 @@ while true; do
             echo "resolving the tracks against files on your local drive using fuzzy-matching."
             read -p "Enter path to Apple Music XML: " xml_file
             read -p "Enter path to local music root folder (for matching): " local_folder
+            read -p "Enter remote server path prefix (e.g. /mnt/music/foriPod) [Leave blank to use local paths]: " prefix_path
             
             out_dir="outputs/m3u_playlists"
             echo -e "${GREEN}Outputs will be routed to: $out_dir${NC}"
             
             if [ -n "$xml_file" ] && [ -n "$local_folder" ]; then
-                python3 convert.py --source "$xml_file" --local "$local_folder" --output "$out_dir"
+                cmd="python3 convert.py --source \"$xml_file\" --local \"$local_folder\" --output \"$out_dir\""
+                if [ -n "$prefix_path" ]; then
+                    cmd="$cmd --prefix \"$prefix_path\""
+                fi
+                eval $cmd
             fi
             ;;
         9)
