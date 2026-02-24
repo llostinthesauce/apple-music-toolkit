@@ -16,7 +16,7 @@ from pathlib import Path
 from mutagen.mp4 import MP4, MP4Cover
 
 # MB API requires a User-Agent
-USER_AGENT = "MusicMasters/1.0 (https://github.com/corbinshanks/musicmasters)"
+USER_AGENT = "MusicMasters/1.0 (https://github.com/llostinthesauce/musicmasters)"
 AUDIO_EXTS = {".m4a", ".mp4"}
 MB_SEARCH_URL = "https://musicbrainz.org/ws/2/release/"
 CAA_URL = "https://coverartarchive.org/release/"

@@ -11,7 +11,12 @@ ENV/
 *.xml
 *.m3u
 output/
+outputs/
 staging/
+.cache
+.spotify_track_cache.json
+.spotify_track_cache.tmp
+.env
 
 # macOS
 .DS_Store
