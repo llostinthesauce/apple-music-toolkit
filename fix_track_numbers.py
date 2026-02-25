@@ -58,7 +58,8 @@ def set_trkn_m4a(path: Path, num: int, total: int, dry_run: bool) -> str:
 
 
 def get_trkn_mp3(audio: MP3) -> tuple[int, int]:
-    trck = str(audio.get("TRCK", ""))
+    trck_frame = audio.tags.get("TRCK") if audio.tags else None
+    trck = str(trck_frame.text[0]) if trck_frame else ""
     if not trck:
         return (0, 0)
     parts = trck.split("/")
@@ -72,6 +73,8 @@ def get_trkn_mp3(audio: MP3) -> tuple[int, int]:
 
 def set_trkn_mp3(path: Path, num: int, total: int, dry_run: bool) -> str:
     audio = MP3(path)
+    if audio.tags is None:
+        audio.add_tags()
     audio.tags.add(TRCK(encoding=3, text=f"{num}/{total}" if total else str(num)))
     if not dry_run:
         audio.save()
