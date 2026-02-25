@@ -79,7 +79,8 @@ def lookup_album(artist: str, album: str) -> dict | None:
     return track data even with inc=recordings, so we first find the MBID via
     search, then fetch the full release by ID with inc=recordings.
     """
-    _load_cache()
+    if not _cache:
+        _load_cache()
     cache_key = f"{normalize(artist)}||{normalize(album)}"
     if cache_key in _cache:
         return _cache[cache_key]
@@ -92,6 +93,7 @@ def lookup_album(artist: str, album: str) -> dict | None:
     )
 
     result = None
+    _save_cache()
     if search_data and search_data.get("releases"):
         for release in search_data["releases"]:
             score = int(release.get("score", 0))
