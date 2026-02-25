@@ -179,15 +179,22 @@ def phase2(albums: dict, needs_total: dict, dry_run: bool) -> None:
                     if existing_total == total:
                         skipped += 1
                         continue
-                    set_trkn_m4a(path, num if num > 0 else (parse_num_from_filename(path.stem) or 0), total, dry_run)
+                    resolved_num = num if num > 0 else (parse_num_from_filename(path.stem) or 0)
+                    if resolved_num == 0:
+                        continue
+                    set_trkn_m4a(path, resolved_num, total, dry_run)
+                    updated += 1
                 else:
                     audio = MP3(path)
                     num, existing_total = get_trkn_mp3(audio)
                     if existing_total == total:
                         skipped += 1
                         continue
-                    set_trkn_mp3(path, num if num > 0 else (parse_num_from_filename(path.stem) or 0), total, dry_run)
-                updated += 1
+                    resolved_num = num if num > 0 else (parse_num_from_filename(path.stem) or 0)
+                    if resolved_num == 0:
+                        continue
+                    set_trkn_mp3(path, resolved_num, total, dry_run)
+                    updated += 1
             except Exception as e:
                 print(f"    ERROR {path.name}: {e}")
 
