@@ -93,7 +93,6 @@ def lookup_album(artist: str, album: str) -> dict | None:
     )
 
     result = None
-    _save_cache()
     if search_data and search_data.get("releases"):
         for release in search_data["releases"]:
             score = int(release.get("score", 0))
@@ -116,9 +115,9 @@ def lookup_album(artist: str, album: str) -> dict | None:
             tracks = []
             for medium in release_data.get("media", []):
                 for track in medium.get("tracks", []):
-                    num = track.get("number") or track.get("position", 0)
+                    num_str = str(track.get("number") or track.get("position", 0))
                     try:
-                        num = int(num)
+                        num = int(re.sub(r"^[A-Za-z]+", "", num_str) or 0)
                     except (ValueError, TypeError):
                         num = 0
                     title = (track.get("recording") or {}).get("title") or track.get("title", "")
@@ -132,6 +131,8 @@ def lookup_album(artist: str, album: str) -> dict | None:
                 }
                 break
 
-    _cache[cache_key] = result
-    _save_cache()
+    # Only persist if we actually reached MB (search_data is not None = we got a response)
+    if search_data is not None:
+        _cache[cache_key] = result
+        _save_cache()
     return result
