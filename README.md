@@ -34,22 +34,44 @@ This phase focuses on grooming the physical files on your hard drive to ensure m
 6. **Fetch & Embed Lyrics** (`fetch_lyrics.py`)
    Queries the LRCLIB public API for synced/unsynced lyrics based on internal ID3 metadata, then embeds the text permanently into the `USLT` tag for native playback display.
 
+6. **Fix Track Numbers** (`fix_track_numbers.py`)
+   Writes `trkn` (track number/total) metadata to files missing it.
+   - Phase 1 (offline): parses leading digits from filenames (`01 Track.m4a` → `trkn=(1, N)`)
+   - Phase 2 (MusicBrainz): for files with no leading number, fuzzy-matches the filename title against the canonical MusicBrainz tracklist (similarity ≥ 0.80) to assign the correct track number and total. Results cached to `~/.cache/amt_mb_cache.json`.
+
+   ```bash
+   python3 fix_track_numbers.py --root ~/Music/path/to/Music [--dry-run] [--skip-mb]
+   ```
+
+7. **Audit Missing Tracks** (`audit_missing_tracks.py`)
+   Identifies albums with missing tracks and writes `output/missing_tracks.csv` and `output/missing_tracks.json`.
+   - Method C (offline): flags albums where `trkn` total > 0 but fewer files are present on disk
+   - Method A (MusicBrainz): queries canonical tracklist per album and fuzzy-matches against files on disk to identify missing tracks with titles and track numbers
+
+   ```bash
+   python3 audit_missing_tracks.py --root ~/Music/path/to/Music --output output/ [--skip-mb]
+   ```
+
 ### Phase 2: Syncing & Cross-Checking Gap Analysis
 This phase bridges the gap between your physical local files and your cloud streaming databases.
 
-7. **Cross-Check Local vs. Cloud XML** (`cross_check.py`)
+8. **Cross-Check Local vs. Cloud XML** (`cross_check.py`)
    Compares an Apple Music XML library export against a local Navidrome or iTunes XML database to identify gaps. Automatically outputs a ranked discrepancy text file into the `outputs/` directory.
-8. **Convert Apple Music XML to M3U Playlists** (`convert.py`)
+9. **Convert Apple Music XML to M3U Playlists** (`convert.py`)
    A fuzzy-matching engine that ingests Apple Music XML playlists, maps the tracks against your physical local directory structure, and generates universally compatible `.m3u` playlist files in the `outputs/m3u_playlists/` directory.
 
 ### Phase 3: Platform Migration (Spotify)
 This phase is designed for migrating curated libraries out of the Apple ecosystem and into Spotify.
 
-9. **Import XML/Playlists to Spotify** (`import_to_spotify.py`)
+10. **Import XML/Playlists to Spotify** (`import_to_spotify.py`)
    Performs a complete migration of an Apple Music XML library into a Spotify account, mapping tracks and recreating playlists natively via the Spotify API. 
    *(Note: Requires configuring `SPOTIPY_CLIENT_ID` and `SPOTIPY_CLIENT_SECRET` environment variables via a free Spotify Developer Application).*
-10. **Extract M3U from Library XML** (`extract_m3u_from_library.py`)
+11. **Extract M3U from Library XML** (`extract_m3u_from_library.py`)
     Extracts raw `.m3u` playlists straight from the XML source without altering them. These lists retain the raw `file:///` location paths exactly as Apple Music stores them. Dumps to the `outputs/m3u_raw/` directory.
+
+## Maintenance & Recovery
+
+For advanced users, the `mac_library_scripts/` directory contains specialized tools for macOS-specific library maintenance, folder merging, track re-ordering, and playlist restoration via AppleScript. See [mac_library_scripts/README.md](mac_library_scripts/README.md) for details.
 
 ## Requirements & Installation
 
