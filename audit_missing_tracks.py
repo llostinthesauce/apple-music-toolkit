@@ -50,8 +50,15 @@ def get_trkn(path: Path) -> tuple[int, int]:
         elif isinstance(audio, MP3):
             trck_frame = audio.tags.get("TRCK") if audio.tags else None
             trck = str(trck_frame.text[0]) if trck_frame else ""
+            if not trck:
+                return (0, 0)
             parts = trck.split("/")
-            return (int(parts[0]) if parts[0] else 0, int(parts[1]) if len(parts) > 1 and parts[1] else 0)
+            try:
+                num = int(parts[0])
+                total = int(parts[1]) if len(parts) > 1 and parts[1] else 0
+                return (num, total)
+            except ValueError:
+                return (0, 0)
     except Exception:
         pass
     return (0, 0)
@@ -94,15 +101,18 @@ def method_c(albums: dict) -> list[dict]:
             continue
         total = max(totals)
         present = {num for num, _ in trkn_data if num > 0}
-        for n in range(1, total + 1):
-            if n not in present:
-                missing.append({
-                    "artist": artist,
-                    "album": album,
-                    "track_num": n,
-                    "track_title": "",
-                    "source": "trkn_gap",
-                })
+        # Only report gaps when file count is also less than total (avoids false positives
+        # from files with unreadable tags that exist on disk but returned num=0)
+        if len(tracks) < total:
+            for n in range(1, total + 1):
+                if n not in present:
+                    missing.append({
+                        "artist": artist,
+                        "album": album,
+                        "track_num": n,
+                        "track_title": "",
+                        "source": "trkn_gap",
+                    })
     return missing
 
 
@@ -132,6 +142,7 @@ def method_a(albums: dict) -> list[dict]:
         canonical = result["tracks"]
         disk_titles = {normalize(strip_track_num(p.stem)) for p in tracks}
 
+        missing_count = 0
         for t in canonical:
             ct_norm = normalize(t["title"])
             if ct_norm in disk_titles:
@@ -148,12 +159,9 @@ def method_a(albums: dict) -> list[dict]:
                     "track_title": t["title"],
                     "source": "musicbrainz",
                 })
+                missing_count += 1
 
-        gaps = sum(
-            1 for t in canonical
-            if not any(SequenceMatcher(None, normalize(t["title"]), d).ratio() >= 0.80 for d in disk_titles)
-        )
-        print(f"{gaps} missing" if gaps else "complete")
+        print(f"{missing_count} missing" if missing_count else "complete")
 
     return missing
 
