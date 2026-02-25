@@ -7,9 +7,10 @@ PHASE 1 (offline, --skip-mb to stop here):
   Writes total as 0 when unknown.
 
 PHASE 2 (MusicBrainz, requires internet):
-  For albums where any track has trkn total == 0, queries MusicBrainz for
-  canonical track count. If matched (score >= 85), writes total into all
-  tracks in that album.
+  For albums with any unresolved tracks, queries MusicBrainz for canonical
+  tracklist. For files with trkn[0] > 0: fills in track total. For files
+  with trkn[0] == 0: fuzzy-matches filename title against MB tracklist
+  (similarity >= 0.80) and assigns track number + total.
 
 Usage:
     python3 fix_track_numbers.py --root ~/Music/foriPod/Media.localized/Music/Music [--dry-run] [--skip-mb]
@@ -17,13 +18,17 @@ Usage:
 
 import argparse
 import re
+import unicodedata
 from collections import defaultdict
+from difflib import SequenceMatcher
 from pathlib import Path
 
 import mutagen
 from mutagen.mp4 import MP4, MP4Tags
 from mutagen.mp3 import MP3
 from mutagen.id3 import TRCK
+
+from mb_client import lookup_album, normalize as normalize_title
 
 AUDIO_EXTS = {".m4a", ".mp4", ".mp3"}
 TRACK_RE = re.compile(r"^(\d+)")
@@ -33,6 +38,26 @@ def parse_num_from_filename(stem: str) -> int | None:
     """Extract leading track number from filename stem. Returns None if not found."""
     m = TRACK_RE.match(stem)
     return int(m.group(1)) if m else None
+
+
+
+def match_by_title(stem: str, mb_tracks: list) -> dict | None:
+    """
+    Fuzzy-match a filename stem against MusicBrainz track titles.
+    Strips leading track number prefix before matching.
+    Returns the best-matching MB track dict if similarity >= 0.80, else None.
+    """
+    clean = re.sub(r"^\d+[\s.\-]+", "", stem).strip()
+    norm = normalize_title(clean)
+    if not norm:
+        return None
+    best, best_score = None, 0.0
+    for track in mb_tracks:
+        score = SequenceMatcher(None, norm, normalize_title(track["title"])).ratio()
+        if score > best_score:
+            best_score = score
+            best = track
+    return best if best_score >= 0.80 else None
 
 
 def get_trkn_m4a(tags: MP4Tags | None) -> tuple[int, int]:
@@ -130,6 +155,7 @@ def phase1(albums: dict, dry_run: bool) -> dict:
                 if parsed is None:
                     print(f"  SKIP (no number in filename): {path.relative_to(path.parent.parent.parent)}")
                     skipped += 1
+                    album_needs_total = True  # Phase 2 will attempt title matching
                     continue
 
                 if path.suffix.lower() in {".m4a", ".mp4"}:
@@ -154,52 +180,94 @@ def phase1(albums: dict, dry_run: bool) -> dict:
 
 
 def phase2(albums: dict, needs_total: dict, dry_run: bool) -> None:
-    """Fill in track totals from MusicBrainz for albums that still need it."""
-    from mb_client import lookup_album
-
+    """
+    For each album needing work, query MusicBrainz and:
+      - Files with trkn[0] > 0 but total == 0: fill in total only
+      - Files with trkn[0] == 0: fuzzy-match title against MB tracklist to assign num + total
+    """
     targets = [(a, alb) for (a, alb), needed in needs_total.items() if needed]
     print(f"\nPhase 2: querying MusicBrainz for {len(targets)} albums...")
 
-    updated = skipped = no_match = 0
+    total_updated = total_skipped = total_no_match = total_unmatched = 0
+
     for artist, album in targets:
         result = lookup_album(artist, album)
         if not result:
             print(f"  NO MATCH: {artist} / {album}")
-            no_match += 1
+            total_no_match += 1
             continue
 
-        total = result["count"]
-        print(f"  FOUND ({total} tracks): {artist} / {album}")
+        mb_total = result["count"]
+        mb_tracks = result["tracks"]
+        matched_files = 0
+        total_filled = 0
+        unmatched_files = 0
 
         for path in albums[(artist, album)]:
             try:
                 if path.suffix.lower() in {".m4a", ".mp4"}:
                     audio = MP4(path)
                     num, existing_total = get_trkn_m4a(audio.tags)
-                    if existing_total == total:
-                        skipped += 1
-                        continue
-                    resolved_num = num if num > 0 else (parse_num_from_filename(path.stem) or 0)
-                    if resolved_num == 0:
-                        continue
-                    set_trkn_m4a(path, resolved_num, total, dry_run)
-                    updated += 1
                 else:
                     audio = MP3(path)
                     num, existing_total = get_trkn_mp3(audio)
-                    if existing_total == total:
-                        skipped += 1
+
+                if num > 0:
+                    # Already has track number — just update total if needed
+                    if existing_total == mb_total:
+                        total_skipped += 1
                         continue
-                    resolved_num = num if num > 0 else (parse_num_from_filename(path.stem) or 0)
-                    if resolved_num == 0:
+                    verb = "WOULD SET" if dry_run else "SET"
+                    print(f"    {verb} trkn=({num},{mb_total}) total fill: {path.name}")
+                    if path.suffix.lower() in {".m4a", ".mp4"}:
+                        set_trkn_m4a(path, num, mb_total, dry_run)
+                    else:
+                        set_trkn_mp3(path, num, mb_total, dry_run)
+                    total_updated += 1
+                    total_filled += 1
+                else:
+                    # No track number — try title matching
+                    mb_track = match_by_title(path.stem, mb_tracks)
+                    if mb_track is None:
+                        print(f"    UNMATCHED: {path.name}")
+                        unmatched_files += 1
+                        total_unmatched += 1
                         continue
-                    set_trkn_mp3(path, resolved_num, total, dry_run)
-                    updated += 1
+                    assigned_num = mb_track["num"]
+                    if assigned_num == 0:
+                        print(f"    UNMATCHED (num=0): {path.name}")
+                        unmatched_files += 1
+                        total_unmatched += 1
+                        continue
+                    verb = "WOULD SET" if dry_run else "SET"
+                    print(f"    {verb} trkn=({assigned_num},{mb_total}) via title match: {path.name}")
+                    if path.suffix.lower() in {".m4a", ".mp4"}:
+                        set_trkn_m4a(path, assigned_num, mb_total, dry_run)
+                    else:
+                        set_trkn_mp3(path, assigned_num, mb_total, dry_run)
+                    matched_files += 1
+                    total_updated += 1
+
             except Exception as e:
                 print(f"    ERROR {path.name}: {e}")
 
+        parts = []
+        if matched_files:
+            parts.append(f"{matched_files} title-matched")
+        if total_filled:
+            parts.append(f"{total_filled} total-filled")
+        if unmatched_files:
+            parts.append(f"{unmatched_files} unmatched")
+        if not parts:
+            parts.append("no changes")
+        print(f"  [{artist} / {album}] MB={mb_total} tracks — {', '.join(parts)}")
+
     verb = "Would update" if dry_run else "Updated"
-    print(f"\nPhase 2 done. {verb} totals: {updated}  Already correct: {skipped}  No MB match: {no_match}")
+    print(f"\nPhase 2 done.")
+    print(f"  {verb}: {total_updated}")
+    print(f"  Already correct: {total_skipped}")
+    print(f"  No MB match: {total_no_match}")
+    print(f"  Unmatched files (title match failed): {total_unmatched}")
 
 
 def main():
