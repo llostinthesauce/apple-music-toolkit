@@ -14,6 +14,7 @@ output/
 outputs/
 staging/
 .cache
+.spotify_auth_cache
 .spotify_track_cache.json
 .spotify_track_cache.tmp
 .env
@@ -31,3 +32,4 @@ download_missing.py
 
 # Private scripts
 download_missing.py
+personal/
