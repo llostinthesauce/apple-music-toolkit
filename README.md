@@ -1,36 +1,46 @@
 # Apple Music Toolkit (AMT)
 
-> "Simplicity is the ultimate sophistication."
+A collection of Python and AppleScript utilities for managing, cleaning, and exporting Apple Music library data.
 
-AMT is a refined suite of tools designed for the digital music purist. It ensures your Apple Music library is not just a collection of files, but a pristine, historically accurate, and beautifully organized archive.
+## Features & Utilities
 
-## The Foundation
-Maintaining the structural integrity of your library.
-- **Align**: Corrects track numbering and renames files to a canonical `XX Title` format based on XML truth.
-- **Polish**: Eliminates split albums by unifying Album Artist tags and audits embedded artwork.
-- **Audit**: A deep scan for missing tracks, numbering gaps, and file corruption.
+### Metadata Management
+* **`main/auto_merge_albums.py`**: Automatically merges album variations (e.g., removing "[Deluxe Edition]" or "(Bonus Track Version)") to unify tracks under a single album identifier.
+* **`main/find_album_merges.py`**: Dry-run utility to identify and list potential album merges without modifying the database.
+* **`main/fix_compilations.py`**: Identifies split compilations and soundtracks, automatically applying the "Compilation" flag and setting the Album Artist to "Various Artists".
+* **`main/force_album_artist.py`**: Finds tracks with a blank "Album Artist" field and populates it with the "Artist" value.
+* **`main/enrich_metadata.py`**: Reads an exported Apple Music XML file and updates the current library's Genre and Year metadata to match.
 
-## The Legacy
-Preserving your history across library rebuilds.
-- **History**: Re-injects years of Play Counts and Star Ratings from your iCloud XML.
-- **Playlists**: Rebuilds user playlists using high-fidelity metadata matching.
-- **Export**: Generates relative-path M3U playlists perfect for Navidrome or mobile DAPs.
+### Spotify Integration
+* **`main/spotify.py`**: Imports an Apple Music XML export directly into Spotify. Supports migrating playlists and saving tracks to "Liked Songs" while handling API rate limiting and local caching.
 
-## The Craft
-Filling in the details.
-- **Fill**: Identifies and downloads missing tracks to complete your nearly-finished albums.
-- **Art**: Sourcing and embedding the highest quality visual covers.
-- **Lyrics**: Embedding synchronized poetry directly into your audio files.
-- **Transcode**: Moving between formats (FLAC/ALAC/AAC) while preserving every bit of metadata.
+### Library Maintenance (via `amt.sh`)
+* **Align**: Corrects track numbering and renames files to a standard format.
+* **Polish**: Audits embedded artwork and album artist tags.
+* **Audit**: Scans for missing tracks, gaps, and file corruption.
+* **History**: Restores Play Counts and Star Ratings from XML backups.
 
 ## Usage
-Launch the interactive experience:
+
+Many core features can be accessed via the interactive shell script:
+
 ```bash
 ./amt.sh
 ```
 
-## Philosophy
-Tools should be invisible. They should do one thing perfectly and get out of the way. This toolkit is designed to make your library feel like a masterwork.
+Individual Python utilities can be run directly:
 
----
-*Stay hungry. Stay foolish.*
+```bash
+python main/spotify.py --source "Library.xml" --library --playlists
+python main/auto_merge_albums.py
+```
+
+## Requirements
+
+Ensure dependencies are installed before running the Python scripts:
+
+```bash
+pip install -r requirements.txt
+```
+
+For Spotify integration, you must configure a `.env` file with your Spotify API credentials (`SPOTIPY_CLIENT_ID`, `SPOTIPY_CLIENT_SECRET`, `SPOTIPY_REDIRECT_URI`).
