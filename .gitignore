@@ -10,6 +10,7 @@ ENV/
 # Data & Exports
 *.xml
 *.m3u
+*.txt
 output/
 outputs/
 staging/

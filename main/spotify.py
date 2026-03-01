@@ -37,7 +37,7 @@ SYSTEM_PLAYLIST_KEYS = {
     "Downloaded",
 }
 FEAT_PATTERN = re.compile(r"\s*[\(\[\-]\s*(feat\.?|ft\.?).*?$", re.IGNORECASE)
-CACHE_PATH = Path(".spotify_track_cache.json")
+CACHE_PATH = Path(__file__).parent.parent / ".spotify_track_cache.json"
 GLOBAL_REQUEST_COUNT = 0
 
 
@@ -67,10 +67,13 @@ def cache_key(artist: str, title: str, album: str) -> str:
 
 def load_track_cache(path: Path = CACHE_PATH) -> dict[str, str | None]:
     if not path.exists():
+        print(f"No cache found at {path}")
         return {}
     try:
         data = json.loads(path.read_text())
-    except Exception:
+        print(f"Loaded {len(data)} cached track matches from {path}")
+    except Exception as exc:
+        print(f"Error loading cache: {exc}")
         return {}
     if not isinstance(data, dict):
         return {}
@@ -129,18 +132,22 @@ def parse_library(xml_path: Path) -> tuple[dict[int, dict[str, Any]], list[dict[
 def get_spotify_client() -> tuple[spotipy.Spotify, str]:
     scope = "playlist-modify-public playlist-modify-private playlist-read-private playlist-read-collaborative user-library-modify user-library-read user-read-private user-read-email"
     print(f"Authenticating with Spotify (Scopes: {scope})...")
+    # Force loading .env from parent dir
+    env_path = Path(__file__).parent.parent / ".env"
+    load_dotenv(env_path, override=True)
+    
     try:
         sp = spotipy.Spotify(
             auth_manager=SpotifyOAuth(
                 scope=scope,
-                cache_path=".spotify_auth_cache",
+                cache_path=str(Path(__file__).parent.parent / ".spotify_auth_cache"),
                 open_browser=True,
                 show_dialog=True
             ),
             retries=5,
             status_retries=5,
             backoff_factor=2.0,
-            requests_timeout=10,
+            requests_timeout=15,
         )
         current_user = sp.current_user()
     except Exception as exc:
@@ -313,7 +320,7 @@ def import_library(
                 try:
                     # PUT /me/library is the unified endpoint as of Feb 2026
                     sp._put("me/library", payload={"uris": matched_uris})
-                    time.sleep(2.0)
+                    time.sleep(5.0)
                 except Exception as exc:
                     print(f"Error saving batch to library: {exc}")
             matched_uris = [] # Clear the batch
@@ -334,28 +341,36 @@ def import_library(
 
 
 def get_existing_playlists(sp: spotipy.Spotify, current_user_id: str) -> dict[str, str]:
-    print("Fetching existing playlists from Spotify...")
+    print("Fetching existing playlists from Spotify (starting API requests)...")
     playlists = {}
     try:
         results = sp.current_user_playlists(limit=50)
         page = 1
         while results:
-            print(f"  Processing playlist page {page}...")
+            print(f"  Mapping playlist page {page}...")
             for item in results["items"]:
                 if not item: continue
                 name = item.get("name")
-                if name:
-                    # Only track playlists owned by the current user to avoid 403 on modification
-                    if item.get("owner", {}).get("id") == current_user_id:
-                        playlists[normalize_value(name)] = item["id"]
+                owner_id = item.get("owner", {}).get("id")
+                if name and owner_id == current_user_id:
+                    playlists[normalize_value(name)] = item["id"]
             
             if results["next"]:
-                results = sp.next(results)
-                page += 1
+                print(f"  Fetching next page (after page {page})...")
+                try:
+                    results = sp.next(results)
+                    page += 1
+                except spotipy.exceptions.SpotifyException as exc:
+                    if getattr(exc, "http_status", None) == 429:
+                        wait = int(exc.headers.get("Retry-After", 30))
+                        print(f"  Rate limited (429). Waiting {wait}s to resume playlist mapping...")
+                        time.sleep(wait)
+                        continue
+                    raise
             else:
                 results = None
     except Exception as exc:
-        print(f"Warning: Error fetching some playlists: {exc}. Proceeding with what we found.")
+        print(f"Warning: Error fetching some playlists: {exc}. Proceeding with partial list.")
         
     print(f"Successfully mapped {len(playlists)} playlists owned by you.")
     return playlists
@@ -388,7 +403,7 @@ def import_playlists(
                 try:
                     print(f"Creating new playlist '{name}'...")
                     # Use /me/playlists — Spotify deprecated POST /users/{id}/playlists
-                    created_playlist = sp._post("me/playlists", payload={"name": name, "public": True, "collaborative": False})
+                    created_playlist = sp._post("me/playlists", payload={"name": name, "public": True})
                     spotify_playlist_id = created_playlist["id"]
                     existing_playlists[name] = spotify_playlist_id
                     time.sleep(10.0) # Increased sleep to avoid anti-abuse ML bots
@@ -512,7 +527,7 @@ def main():
     playlists = filter_playlists(playlists, args.playlist)
     if args.playlist:
         print(f"Selected {len(playlists)} playlist(s) by --playlist filter.")
-    print(f"Loaded {len(track_cache)} cached track matches from {CACHE_PATH}.")
+    print(f"Loaded {len(track_cache)} cached track matches.")
 
     if args.library:
         import_library(spotify_client, tracks, track_cache, dry_run=args.dry_run)
