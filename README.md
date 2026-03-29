@@ -46,4 +46,6 @@ pip install -r requirements.txt
 ```
 
 For Spotify integration, you must configure a `.env` file with your Spotify API credentials (`SPOTIPY_CLIENT_ID`, `SPOTIPY_CLIENT_SECRET`, `SPOTIPY_REDIRECT_URI`).
+---
 
+*Part of [@llostinthesauce](https://github.com/llostinthesauce)'s portfolio*
