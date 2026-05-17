@@ -1,0 +1,63 @@
+# Environment
+.env
+
+# Virtual environment
+.venv/
+env/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*$py.class
+
+# Output (runtime reports, logs)
+output/
+outputs/
+
+# Personal configs (paths, mounts)
+sync_config.json
+main/sync_config.json
+
+# Fingerprint / acoustic caches (personal data)
+.audio_fingerprints.json
+.acoustid_*.json
+.acoustic_lookup_cache.json
+
+# Scan results (contain local paths)
+scan_results.json
+main/scan_results.json
+
+# Progress files (local state)
+art_fix_progress.json
+
+# Archive — old scripts / stale XMLs
+archive/
+
+# Library exports (avoid committing personal XML dumps)
+*.xml
+*.m3u
+*.txt
+
+# Spotify cache
+.spotify_auth_cache
+.spotify_track_cache.json
+.spotify_track_cache.tmp
+
+# Staging / personal scripts
+staging/
+personal/
+download_missing.py
+
+# macOS
+.DS_Store
+._*
+
+# IDE
+.vscode/
+.idea/
+
+# Loudness reports (desktop paths)
+*Loudness_Report.csv

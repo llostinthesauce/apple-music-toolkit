@@ -1,0 +1,39 @@
+{
+  "main_library": "/Users/YOU/Music/foriPod/Media.localized/Music/Music",
+
+  "ipods": {
+    "video": {
+      "name": "iPod 5.5 gen Video (256GB)",
+      "sync_root": "/Users/YOU/Music/foriPod/SyncLibraries/iPodVideo/Music",
+      "split_threshold_mb": 50,
+      "split_target_mb": 45,
+      "ram_mb": 64,
+      "max_tracks": 40000
+    },
+    "photo": {
+      "name": "iPod 4th gen Photo (128GB)",
+      "sync_root": "/Users/YOU/Music/foriPod/SyncLibraries/iPodPhoto/Music",
+      "split_threshold_mb": 32,
+      "split_target_mb": 28,
+      "ram_mb": 32,
+      "max_tracks": 15000
+    }
+  },
+
+  "split": {
+    "silence_db": -50,
+    "silence_duration": 1.5,
+    "min_segment_seconds": 30,
+    "max_segment_seconds": 420,
+    "segment_naming": "{track_num}-{part:02d} {title} (Pt {part}).m4a",
+    "backup_originals": false,
+    "keep_playlist_order": true
+  },
+
+  "sync": {
+    "method": "hardlink",
+    "skip_patterns": [".DS_Store", "._*", "*.jpg", "*.png"],
+    "verify_after_sync": true,
+    "apple_music_sync_folder": null
+  }
+}
